@@ -8,12 +8,30 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <linux/videodev2.h>
+
+/* compressed frame size. 1080p mpeg4 10Mb/s can be >256k in size, so
+ * this is to make sure frame fits into buffer */
+#define STREAM_BUFFER_SIZE 512000
 
 int decoder_handler;
 int converter_handler;
 int video_handler;
+
+struct mfc_buffer {
+	int size[3];
+	int offset[3];
+	int bytesused[3];
+	void *plane[3];
+	int numplanes;
+	int index;
+	bool queue;
+};
+
+struct mfc_buffer *out_buffers = NULL;
+int out_buffers_count = 0;
 
 static char *
 get_driver (char *fname)
@@ -179,16 +197,179 @@ close_devices ()
 	video_handler = -1;
 }
 
+static bool
+mfc_output_set_format ()
+{
+	int ret;
+	struct v4l2_format fmt = {
+		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+		.fmt.pix_mp = {
+			.pixelformat = V4L2_PIX_FMT_H264,
+			.num_planes = 3,
+		}
+	};
+	fmt.fmt.pix_mp.plane_fmt[0].sizeimage = STREAM_BUFFER_SIZE;
+
+	ret = ioctl (decoder_handler, VIDIOC_S_FMT, &fmt);
+	if (ret != 0) {
+		perror ("video set format failed: ");
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+mfc_output_get_format ()
+{
+	int ret;
+	struct v4l2_format fmt = {
+		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+	};
+
+	/* get format */
+	ret = ioctl (decoder_handler, VIDIOC_G_FMT, &fmt);
+	if (ret != 0) {
+		perror ("video get format failed: ");
+		return false;
+	}
+
+	return fmt.fmt.pix_mp.plane_fmt[0].sizeimage == STREAM_BUFFER_SIZE;
+}
+
+static int
+mfc_request_output_buffers ()
+{
+	int ret;
+	struct v4l2_requestbuffers reqbuf = {
+		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+		.memory = V4L2_MEMORY_MMAP,
+		.count = 2,
+	};
+
+	ret = ioctl (decoder_handler, VIDIOC_REQBUFS, &reqbuf);
+	if (ret != 0) {
+		perror ("request output buffers failed: ");
+		return -1;
+	}
+
+	return reqbuf.count;
+}
+
+static bool
+mfc_map_output_buffers (int count)
+{
+	int i, j, ret;
+	struct v4l2_plane planes[3];
+	struct v4l2_buffer buf = {
+		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+		.memory = V4L2_MEMORY_MMAP,
+		.m.planes = planes,
+		.length = 3,
+	};
+
+	for (i = 0; i < count; i++) {
+		buf.index = i;
+
+		ret = ioctl(decoder_handler, VIDIOC_QUERYBUF, &buf);
+		if (ret != 0) {
+			perror ("query output buffers failed: ");
+			return false;
+		}
+
+		struct mfc_buffer *b = &out_buffers[i];
+		b->numplanes = 0;
+		for (j = 0; j < 3; j++) {
+			b->size[j] = buf.m.planes[j].length;
+			b->bytesused[j] = buf.m.planes[j].bytesused;
+
+			if (b->size[j] == 0)
+				continue;
+
+			b->plane[j] = mmap (NULL,
+					    buf.m.planes[j].length,
+					    PROT_READ | PROT_WRITE,
+					    MAP_SHARED,
+					    decoder_handler,
+					    buf.m.planes[j].m.mem_offset);
+
+			if (b->plane[j] == MAP_FAILED) {
+				perror ("mapping output buffers failed: ");
+				return false;
+			}
+
+			memset (b->plane[j], 0, b->size[j]);
+			b->numplanes++;
+		}
+
+		b->index = i;
+	}
+
+	return true;
+}
+
+static bool
+setup_mfc_output ()
+{
+	if (!(mfc_output_set_format () && mfc_output_get_format ()))
+		return false;
+
+	out_buffers_count = mfc_request_output_buffers ();
+	if (out_buffers_count == -1)
+		return false;
+
+	out_buffers = (struct mfc_buffer *) calloc (out_buffers_count,
+						    sizeof (struct mfc_buffer));
+	if (!out_buffers)
+		return false;
+
+	if (!mfc_map_output_buffers (out_buffers_count))
+		return false;
+
+	return true;
+}
+
+static void
+mfc_free_buffer (int count, struct mfc_buffer *buffers)
+{
+	int i, j;
+
+	for (i = 0; i < count; i++) {
+		struct mfc_buffer *b = &buffers[i];
+
+		for (j = 0; j < b->numplanes; j++) {
+			if (b->plane[j] && b->plane != MAP_FAILED)
+				munmap (b->plane[j], b->size[j]);
+		}
+	}
+
+	free (buffers);
+}
+
+static void
+mfc_free_buffers ()
+{
+	if (out_buffers)
+		mfc_free_buffer (out_buffers_count, out_buffers);
+}
 
 int
 main (int argc, char **argv)
 {
 	int ret = EXIT_SUCCESS;
 
-	if (!open_devices ())
+	if (!open_devices ()) {
 		ret = EXIT_FAILURE;
+		goto bail;
+	}
 
+	if (!setup_mfc_output ()) {
+		ret = EXIT_FAILURE;
+		goto bail;
+	}
+
+bail:
+	mfc_free_buffers ();
 	close_devices ();
-
 	return ret;
 }
