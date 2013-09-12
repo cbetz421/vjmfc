@@ -11,6 +11,10 @@
 #include <sys/ioctl.h>
 #include <linux/videodev2.h>
 
+int decoder_handler;
+int converter_handler;
+int video_handler;
+
 static char *
 get_driver (char *fname)
 {
@@ -98,23 +102,39 @@ check_output_caps (int fd)
 	c = query_caps (fd);
 	return (c & V4L2_CAP_VIDEO_OUTPUT_MPLANE &&
 		c & V4L2_CAP_STREAMING);
-
 }
 
-static int
+static void
+check_and_open (char *device, int *handler, bool (*check_func)(int))
+{
+	int fd;
+
+	fd = open (device, O_RDWR | O_NONBLOCK, 0);
+	if (fd < 0)
+		return;
+
+	if (check_func (fd)) {
+		printf ("Found %s\n", device);
+		*handler = fd;
+		return;
+	}
+
+	close (fd);
+}
+
+static bool
 open_devices ()
 {
 	DIR *dir;
 	struct dirent *ent;
 	char *driver, *device;
-	int fd;
-	bool ret;
+
+	decoder_handler = converter_handler = video_handler = -1;
 
 	dir = opendir ("/sys/class/video4linux/");
 	if (!dir)
-		return -1;
+		return false;
 
-	ret = false;
 	while ((ent = readdir (dir)) != NULL) {
 		if (strncmp (ent->d_name, "video", 5) != 0)
 			continue;
@@ -129,41 +149,46 @@ open_devices ()
 			continue;
 		}
 
-		fd = open (device, O_RDWR | O_NONBLOCK, 0);
-		if (fd < 0) {
-			free (driver);
-			free (device);
-			continue;
-		}
-
-		if (strstr (driver, "s5p-mfc-dec")) {
-			if (check_m2m_caps (fd)) {
-				printf ("Found %s in %s\n", driver, device);
-			}
-		} else if (strstr (driver, "fimc") && strstr (driver, "m2m")) {
-			if (check_m2m_caps (fd)) {
-				printf ("Found %s in %s\n", driver, device);
-			}
+		if (decoder_handler == -1 && strstr (driver, "s5p-mfc-dec")) {
+			check_and_open (device, &decoder_handler, check_m2m_caps);
+		} else if (converter_handler ==  -1 &&
+			   (strstr (driver, "fimc") && strstr (driver, "m2m"))) {
+			check_and_open (device, &converter_handler, check_m2m_caps);
 		} else if (strstr (driver, "video0")) {
-			if (check_output_caps (fd)) {
-				printf ("Found %s in %s\n", driver, device);
-			}
+			check_and_open (device, &video_handler, check_output_caps);
 		}
 
-		close (fd);
 		free (driver);
 		free (device);
-		fd = -1;
 	}
 
 	closedir (dir);
-	return ret;
+	return decoder_handler != -1 &&
+		converter_handler != -1 &&
+		video_handler != -1;
 }
+
+static void
+close_devices ()
+{
+	close (decoder_handler);
+	decoder_handler = -1;
+	close (converter_handler);
+	converter_handler = -1;
+	close (video_handler);
+	video_handler = -1;
+}
+
 
 int
 main (int argc, char **argv)
 {
-	open_devices ();
+	int ret = EXIT_SUCCESS;
 
-	return 0;
+	if (!open_devices ())
+		ret = EXIT_FAILURE;
+
+	close_devices ();
+
+	return ret;
 }
