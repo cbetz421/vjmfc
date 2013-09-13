@@ -5,7 +5,7 @@ override CFLAGS += -Wmissing-prototypes -ansi -std=gnu99 -D_GNU_SOURCE
 
 all:
 
-vjmfc: main.o
+vjmfc: main.o v4l2_mfc.o
 bins += vjmfc
 
 all: $(bins)
