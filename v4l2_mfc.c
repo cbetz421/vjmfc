@@ -17,12 +17,12 @@ v4l2_mfc_querycap (int fd)
 		return ret;
 	}
 
-	if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
+	if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE_MPLANE)) {
 		fprintf (stderr, "Device does not support capture\n");
 		return -1;
 	}
 
-	if (!(cap.capabilities & V4L2_CAP_VIDEO_OUTPUT)) {
+	if (!(cap.capabilities & V4L2_CAP_VIDEO_OUTPUT_MPLANE)) {
 		fprintf (stderr, "Device does not support output\n");
 		return -1;
 	}
