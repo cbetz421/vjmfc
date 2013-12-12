@@ -37,16 +37,17 @@ v4l2_mfc_querycap (int fd)
 
 int
 v4l2_mfc_s_fmt (int fd,
-		unsigned int sizeimage)
+		uint32_t pfmt,
+		unsigned int size)
 {
 	int ret;
 	struct v4l2_format fmt = {
 		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
 		.fmt.pix_mp = {
-			.pixelformat = V4L2_PIX_FMT_H264,
+			.pixelformat = pfmt,
 		},
 	};
-	fmt.fmt.pix_mp.plane_fmt[0].sizeimage = sizeimage;
+	fmt.fmt.pix_mp.plane_fmt[0].sizeimage = size;
 
 	ret = ioctl (fd, VIDIOC_S_FMT, &fmt);
 	return ret;

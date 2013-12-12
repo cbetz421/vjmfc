@@ -1,9 +1,11 @@
 #include <linux/videodev2.h>
+#include <stdint.h>
 
 int v4l2_mfc_querycap (int fd);
 
 int v4l2_mfc_s_fmt (int fd,
-		    unsigned int sizeimage);
+		    uint32_t pfmt,
+		    unsigned int size);
 
 int v4l2_mfc_reqbufs (int fd,
 		      enum v4l2_buf_type type,
@@ -49,13 +51,3 @@ int v4l2_mfc_g_crop (int fd,
 int v4l2_mfc_poll (int fd,
 		   int *revents,
 		   int timeout);
-
-
-
-
-
-
-
-
-
-
