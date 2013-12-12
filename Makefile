@@ -3,6 +3,9 @@ LDFLAGS := -Wl,--as-needed
 
 override CFLAGS += -Wmissing-prototypes -ansi -std=gnu99 -D_GNU_SOURCE
 
+CFLAGS += $(shell pkg-config --cflags libavformat libavcodec)
+LIBS += $(shell pkg-config --libs libavformat libavcodec)
+
 all:
 
 vjmfc: main.o v4l2_mfc.o

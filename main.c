@@ -77,6 +77,9 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+
 #include "v4l2_mfc.h"
 
 /* compressed frame size. 1080p mpeg4 10Mb/s can be >256k in size, so
@@ -357,6 +360,60 @@ mfc_ctxt_deinit (struct mfc_ctxt *ctxt)
 	return true;
 }
 
+static uint32_t
+get_av_codec_id (AVFormatContext *ic)
+{
+	unsigned int i;
+	AVCodecContext *cc;
+	enum CodecID codec = CODEC_ID_NONE;
+
+	for (i = 0; i < ic->nb_streams; i++) {
+		cc = ic->streams[i]->codec;
+		if (cc->codec_type == AVMEDIA_TYPE_VIDEO) {
+			codec = cc->codec_id;
+			break;
+		}
+        }
+
+	switch (codec) {
+	case CODEC_ID_H264:
+		return V4L2_PIX_FMT_H264;
+	case CODEC_ID_MPEG4:
+		return V4L2_PIX_FMT_MPEG4;
+	case CODEC_ID_H263:
+		return V4L2_PIX_FMT_H263;
+	case CODEC_ID_MPEG2VIDEO:
+		return V4L2_PIX_FMT_MPEG2;
+	case CODEC_ID_MPEG1VIDEO:
+		return V4L2_PIX_FMT_MPEG1;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static AVFormatContext *
+get_av_context (const char *fname)
+{
+	AVFormatContext *ic = NULL;
+
+	av_register_all ();
+
+	if (avformat_open_input (&ic, fname, NULL, NULL) < 0)
+		return NULL;
+
+	if (avformat_find_stream_info (ic, NULL) < 0) {
+		avformat_close_input (&ic);
+		return NULL;
+	}
+
+	av_dump_format (ic, 0, fname, 0);
+
+	return ic;
+}
+
+
 int
 main (int argc, char **argv)
 {
@@ -369,13 +426,22 @@ main (int argc, char **argv)
 
 	struct mfc_ctxt *ctxt = mfc_ctxt_new ();
 
-	uint32_t codec = V4L2_PIX_FMT_MPEG4;
+	AVFormatContext *avctxt = get_av_context (argv[1]);
+	if (!avctxt)
+		return ret;
+
+	uint32_t codec = get_av_codec_id (avctxt);
+	if (codec == 0)
+		goto bail;
+
 	if (!mfc_ctxt_init (ctxt, codec))
 		goto bail;
 
 	ret = EXIT_SUCCESS;
 
 bail:
+	avformat_close_input (&avctxt);
+
 	mfc_ctxt_deinit (ctxt);
 	mfc_ctxt_free (ctxt);
 	return ret;
