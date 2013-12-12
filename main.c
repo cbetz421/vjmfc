@@ -84,19 +84,19 @@
 #define STREAM_BUFFER_SIZE 512000
 
 struct mfc_buffer {
-	int size[3];
-	int offset[3];
-	int bytesused[3];
-	void *plane[3];
-	int numplanes;
-	int index;
-	bool queue;
+       int size[2];
+       int offset[2];
+       int bytesused[2];
+       void *plane[2];
+       int numplanes;
+       int index;
+       bool queue;
 };
 
 struct mfc_ctxt {
 	int handler;
-	struct mfc_buffer *out_buffers;
-	int out_buffers_count;
+	struct mfc_buffer *out;
+	int oc;
 };
 
 static struct mfc_ctxt *
@@ -110,26 +110,25 @@ mfc_ctxt_new ()
 }
 
 static void
-mfc_free_buffer (int count, struct mfc_buffer *buffers)
+unmap_buffers (struct mfc_ctxt *ctxt)
 {
 	int i, j;
 
-	for (i = 0; i < count; i++) {
-		struct mfc_buffer *b = &buffers[i];
+	for (i = 0; i < ctxt->oc; i++) {
+		struct mfc_buffer *b = &ctxt->out[i];
 
 		for (j = 0; j < b->numplanes; j++) {
-			if (b->plane[j] && b->plane != MAP_FAILED)
+			if (b->plane[j] && b->plane[j] != MAP_FAILED)
 				munmap (b->plane[j], b->size[j]);
 		}
 	}
-
-	free (buffers);
 }
 
 static void
 mfc_ctxt_free (struct mfc_ctxt *ctxt)
 {
-	mfc_free_buffer (ctxt->out_buffers_count, ctxt->out_buffers);
+	unmap_buffers (ctxt);
+	free (ctxt->out);
 	free (ctxt);
 }
 
@@ -236,10 +235,110 @@ open_device (struct mfc_ctxt *ctxt)
 }
 
 static bool
-mfc_ctxt_init (struct mfc_ctxt *ctxt)
+map_buffer (int fd, struct v4l2_buffer *buf, struct mfc_buffer *out)
+{
+	int i;
+
+	for (i = 0; i < 2; i++) {
+		out->size[i] = buf->m.planes[i].length;
+		out->bytesused[i] = buf->m.planes[i].bytesused;
+
+		if (out->size[i] == 0)
+			continue;
+
+		out->plane[i] = mmap (NULL,
+				      buf->m.planes[i].length,
+				      PROT_READ | PROT_WRITE,
+				      MAP_SHARED,
+				      fd,
+				      buf->m.planes[i].m.mem_offset);
+
+		if (out->plane[i] == MAP_FAILED)
+			return false;
+
+		memset (out->plane[i], 0, out->size[i]);
+		out->numplanes++;
+	}
+
+	return true;
+}
+
+static bool
+queue_buffers (struct mfc_ctxt *ctxt)
+{
+	int i;
+	struct v4l2_plane planes[2];
+	struct v4l2_buffer buf;
+	struct mfc_buffer *b;
+
+	for (i = 0; i < ctxt->oc; i++) {
+		if (v4l2_mfc_querybuf (ctxt->handler,
+				       &buf,
+				       V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+				       V4L2_MEMORY_MMAP,
+				       i, planes) != 0) {
+			perror ("query output buffers failed: ");
+			return false;
+		}
+
+		b = &ctxt->out[i];
+		if (!map_buffer (ctxt->handler, &buf, b)) {
+			perror ("mapping output buffers failed: ");
+			return false;
+		}
+		b->index = i;
+
+		for (i = 0; i < b->numplanes; i++) {
+			planes[i].m.userptr = (unsigned long) b->plane[i];
+			planes[i].length = b->size[i];
+			planes[i].bytesused = b->bytesused[i];
+		}
+
+		int frame_length = b->bytesused[0]; /* 0 */
+		if (v4l2_mfc_qbuf (ctxt->handler,
+				   &buf,
+				   V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+				   V4L2_MEMORY_MMAP,
+				   i, planes, frame_length) != 0) {
+			perror ("queue input buffer");
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool
+mfc_ctxt_init (struct mfc_ctxt *ctxt, uint32_t codec)
 {
 	if (!open_device (ctxt))
 		return false;
+
+	if (v4l2_mfc_s_fmt (ctxt->handler, codec, 1024 * 3072) != 0) {
+		perror ("Couldn't set format: ");
+		return false;
+	}
+
+	int count = 2;
+	if (v4l2_mfc_reqbufs (ctxt->handler,
+			      V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+			      V4L2_MEMORY_MMAP,
+			      &count) != 0) {
+		perror ("Couldn't request buffers: ");
+		return false;
+	}
+
+	ctxt->oc = count; /* output buffers count */
+	ctxt->out = (struct mfc_buffer *) calloc (count, sizeof (struct mfc_buffer));
+
+	if (!queue_buffers (ctxt))
+		return false;
+
+	if (v4l2_mfc_streamon (ctxt->handler,
+			       V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) != 0) {
+		perror ("Couldn't set stream on: ");
+		return false;
+	}
 
 	return true;
 }
@@ -258,185 +357,20 @@ mfc_ctxt_deinit (struct mfc_ctxt *ctxt)
 	return true;
 }
 
-#if 0
-static bool
-mfc_output_set_format ()
-{
-	int ret;
-	struct v4l2_format fmt = {
-		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
-		.fmt.pix_mp = {
-			.pixelformat = V4L2_PIX_FMT_H264,
-			.num_planes = 3,
-		}
-	};
-	fmt.fmt.pix_mp.plane_fmt[0].sizeimage = STREAM_BUFFER_SIZE;
-
-	ret = ioctl (decoder_handler, VIDIOC_S_FMT, &fmt);
-	if (ret != 0) {
-		perror ("video set format failed: ");
-		return false;
-	}
-
-	return true;
-}
-
-static bool
-mfc_output_get_format ()
-{
-	int ret;
-	struct v4l2_format fmt = {
-		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
-	};
-
-	/* get format */
-	ret = ioctl (decoder_handler, VIDIOC_G_FMT, &fmt);
-	if (ret != 0) {
-		perror ("video get format failed: ");
-		return false;
-	}
-
-	return fmt.fmt.pix_mp.plane_fmt[0].sizeimage == STREAM_BUFFER_SIZE;
-}
-
-static int
-mfc_request_output_buffers ()
-{
-	int ret;
-	struct v4l2_requestbuffers reqbuf = {
-		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
-		.memory = V4L2_MEMORY_MMAP,
-		.count = 2,
-	};
-
-	ret = ioctl (decoder_handler, VIDIOC_REQBUFS, &reqbuf);
-	if (ret != 0) {
-		perror ("request output buffers failed: ");
-		return -1;
-	}
-
-	return reqbuf.count;
-}
-
-static bool
-mfc_map_output_buffers ()
-{
-	int i, j, ret;
-	struct v4l2_plane planes[3];
-	struct v4l2_buffer buf = {
-		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
-		.memory = V4L2_MEMORY_MMAP,
-		.m.planes = planes,
-		.length = 3,
-	};
-
-	for (i = 0; i < out_buffers_count; i++) {
-		buf.index = i;
-
-		ret = ioctl(decoder_handler, VIDIOC_QUERYBUF, &buf);
-		if (ret != 0) {
-			perror ("query output buffers failed: ");
-			return false;
-		}
-
-		struct mfc_buffer *b = &out_buffers[i];
-		b->numplanes = 0;
-		for (j = 0; j < 3; j++) {
-			b->size[j] = buf.m.planes[j].length;
-			b->bytesused[j] = buf.m.planes[j].bytesused;
-
-			if (b->size[j] == 0)
-				continue;
-
-			b->plane[j] = mmap (NULL,
-					    buf.m.planes[j].length,
-					    PROT_READ | PROT_WRITE,
-					    MAP_SHARED,
-					    decoder_handler,
-					    buf.m.planes[j].m.mem_offset);
-
-			if (b->plane[j] == MAP_FAILED) {
-				perror ("mapping output buffers failed: ");
-				return false;
-			}
-
-			memset (b->plane[j], 0, b->size[j]);
-			b->numplanes++;
-		}
-
-		b->index = i;
-	}
-
-	return true;
-}
-
-static bool
-mfc_queue_output_buffer (struct mfc_buffer *b)
-{
-	int i, ret;
-	struct v4l2_plane planes[3];
-	struct v4l2_buffer buf = {
-		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
-		.memory = V4L2_MEMORY_MMAP,
-		.m.planes = planes,
-		.length = b->numplanes,
-	};
-
-	for (i = 0; i < b->numplanes; i++) {
-		planes[i].m.userptr = (unsigned long) b->plane[i];
-		planes[i].length = b->size[i];
-		planes[i].bytesused = b->bytesused[i];
-	}
-
-	ret = ioctl (decoder_handler, VIDIOC_QBUF, &buf);
-	if (ret != 0) {
-		perror ("queue input buffer");
-		return false;
-	}
-
-	return true;
-}
-
-static bool
-setup_mfc_output ()
-{
-	if (!(mfc_output_set_format () && mfc_output_get_format ()))
-		return false;
-
-	out_buffers_count = mfc_request_output_buffers ();
-	if (out_buffers_count == -1)
-		return false;
-
-	out_buffers = (struct mfc_buffer *) calloc (out_buffers_count,
-						    sizeof (struct mfc_buffer));
-	if (!out_buffers)
-		return false;
-
-	if (!mfc_map_output_buffers ())
-		return false;
-
-	struct mfc_buffer *b = &out_buffers[0];
-	if (!mfc_queue_output_buffer (b))
-		return false;
-
-	return true;
-}
-
-static void
-mfc_free_buffers ()
-{
-	if (out_buffers)
-		mfc_free_buffer (out_buffers_count, out_buffers);
-}
-#endif
-
 int
 main (int argc, char **argv)
 {
 	int ret = EXIT_FAILURE;
+
+	if (argc != 2) {
+		fprintf (stderr, "Missing video path argument.\n");
+		return ret;
+	}
+
 	struct mfc_ctxt *ctxt = mfc_ctxt_new ();
 
-	if (!mfc_ctxt_init (ctxt))
+	uint32_t codec = V4L2_PIX_FMT_MPEG4;
+	if (!mfc_ctxt_init (ctxt, codec))
 		goto bail;
 
 	ret = EXIT_SUCCESS;
