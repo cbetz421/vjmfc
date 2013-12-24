@@ -182,7 +182,8 @@ create_buffers (struct mfc_ctxt *ctxt, enum dir d)
 			return false;
 		}
 
-		printf ("> buffer %d has %d planes\n", i, b[i].buf.length);
+		printf ("> %s buffer %d has %d plane(s)\n",
+			(d == IN) ? "input" : "output", i, b[i].buf.length);
 		assert (b[i].buf.length < 2);
 
 		if (!map_planes (ctxt->handler, b)) {
