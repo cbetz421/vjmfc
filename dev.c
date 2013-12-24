@@ -62,36 +62,18 @@ get_device (const char *fname)
 	return device;
 }
 
-static void
-open_and_query (char *device, int *handler)
-{
-	int fd;
-
-	fd = open (device, O_RDWR | O_NONBLOCK, 0);
-	if (fd < 0)
-		return;
-
-	if (v4l2_mfc_querycap (fd) == 0) {
-		*handler = fd;
-		return;
-	}
-
-	close (fd);
-}
-
-int
+char *
 v4l2_find_device (const char *drivername)
 {
 	DIR *dir;
 	struct dirent *ent;
 	char *driver, *device;
-	int handler;
 
-	handler = -1;
 	dir = opendir ("/sys/class/video4linux/");
 	if (!dir)
-		return handler;
+		return NULL;
 
+	device = NULL;
 	while ((ent = readdir (dir)) != NULL) {
 		if (strncmp (ent->d_name, "video", 5) != 0)
 			continue;
@@ -101,14 +83,15 @@ v4l2_find_device (const char *drivername)
 			continue;
 
 		device = get_device (ent->d_name);
-		if (device && handler == -1 && strstr (driver, drivername)) {
-			open_and_query (device, &handler);
-		}
+		if (device && strstr (driver, drivername))
+			break;
 
 		free (driver);
 		free (device);
 	}
 
 	closedir (dir);
-	return handler;
+	free (driver);
+
+	return device;
 }

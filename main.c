@@ -69,6 +69,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/mman.h>
 
 #include "v4l2_mfc.h"
@@ -219,9 +220,19 @@ queue_buffers (struct mfc_ctxt *ctxt)
 static bool
 mfc_ctxt_init (struct mfc_ctxt *ctxt, uint32_t codec)
 {
-	ctxt->handler = v4l2_find_device("s5p-mfc-dec");
-	if (ctxt->handler == -1)
+	char *dev = v4l2_find_device("s5p-mfc-dec");
+	if (!dev)
 		return false;
+
+	ctxt->handler = open (dev, O_RDWR | O_NONBLOCK, 0);
+	free (dev);
+	if (ctxt->handler < 0)
+		return false;
+
+	if (v4l2_mfc_querycap (ctxt->handler) != 0) {
+		perror ("Couldn't query capabilities: ");
+		return false;
+	}
 
 	if (v4l2_mfc_s_fmt (ctxt->handler, codec, 1024 * 3072) != 0) {
 		perror ("Couldn't set format: ");
@@ -255,8 +266,10 @@ mfc_ctxt_init (struct mfc_ctxt *ctxt, uint32_t codec)
 static void
 close_device (struct mfc_ctxt *ctxt)
 {
-	close (ctxt->handler);
-	ctxt->handler = -1;
+	if (ctxt->handler != -1) {
+		close (ctxt->handler);
+		ctxt->handler = -1;
+	}
 }
 
 static bool
