@@ -135,16 +135,22 @@ mfc_ctxt_close (struct mfc_ctxt *ctxt)
 }
 
 static void
-unmap_buffers (struct mfc_ctxt *ctxt)
+unmap_buffers (struct mfc_ctxt *ctxt, enum dir d)
 {
-	uint32_t i, j;
+	int res;
+	uint32_t i, j, c;
+	struct mfc_buffer *b;
 
-	for (i = 0; i < ctxt->oc; i++) {
-		struct mfc_buffer *b = &ctxt->out[i];
+	c = (d == IN) ? ctxt->ic : ctxt->oc;
+	b = (d == IN) ? ctxt->in : ctxt->out;
 
-		for (j = 0; j < b->buf.length; j++) {
-			if (b->paddr[j] && b->paddr[j] != MAP_FAILED)
-				munmap (b->paddr[j], b->planes[j].length);
+	for (i = 0; i < c; i++) {
+		for (j = 0; j < b[i].buf.length; j++) {
+			if (b[i].paddr[j] && b[i].paddr[j] != MAP_FAILED) {
+				res = munmap (b[i].paddr[j], b[i].planes[j].length);
+				if (res != 0)
+					perror ("Couldn't unmap a plane");
+			}
 		}
 	}
 }
@@ -152,7 +158,9 @@ unmap_buffers (struct mfc_ctxt *ctxt)
 static void
 mfc_ctxt_free (struct mfc_ctxt *ctxt)
 {
-	unmap_buffers (ctxt);
+	unmap_buffers (ctxt, IN);
+	unmap_buffers (ctxt, OUT);
+	free (ctxt->in);
 	free (ctxt->out);
 	free (ctxt);
 }
