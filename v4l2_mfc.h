@@ -1,3 +1,6 @@
+#ifndef MFC_H_
+#define MFC_H_
+
 #include <linux/videodev2.h>
 #include <stdint.h>
 
@@ -49,3 +52,5 @@ int v4l2_mfc_g_crop (int fd,
 int v4l2_mfc_poll (int fd,
 		   int *revents,
 		   int timeout);
+
+#endif
