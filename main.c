@@ -365,7 +365,7 @@ get_av_codec_id (AVFormatContext *ic)
 {
 	unsigned int i;
 	AVCodecContext *cc;
-	enum CodecID codec = CODEC_ID_NONE;
+	enum AVCodecID codec = AV_CODEC_ID_NONE;
 
 	for (i = 0; i < ic->nb_streams; i++) {
 		cc = ic->streams[i]->codec;
@@ -376,15 +376,15 @@ get_av_codec_id (AVFormatContext *ic)
         }
 
 	switch (codec) {
-	case CODEC_ID_H264:
+	case AV_CODEC_ID_H264:
 		return V4L2_PIX_FMT_H264;
-	case CODEC_ID_MPEG4:
+	case AV_CODEC_ID_MPEG4:
 		return V4L2_PIX_FMT_MPEG4;
-	case CODEC_ID_H263:
+	case AV_CODEC_ID_H263:
 		return V4L2_PIX_FMT_H263;
-	case CODEC_ID_MPEG2VIDEO:
+	case AV_CODEC_ID_MPEG2VIDEO:
 		return V4L2_PIX_FMT_MPEG2;
-	case CODEC_ID_MPEG1VIDEO:
+	case AV_CODEC_ID_MPEG1VIDEO:
 		return V4L2_PIX_FMT_MPEG1;
 	default:
 		break;
