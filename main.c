@@ -300,6 +300,22 @@ mfc_ctxt_setup_input_buffers (struct mfc_ctxt *ctxt)
 }
 
 static bool
+mfc_ctxt_setup_output_buffers (struct mfc_ctxt *ctxt)
+{
+	if (!prepare_buffers (ctxt, OUT))
+		return false;
+
+	if (!create_buffers (ctxt, OUT))
+		return false;
+
+	if (!queue_buffers (ctxt, OUT))
+		return false;
+
+	return true;
+}
+
+
+static bool
 mfc_ctxt_init (struct mfc_ctxt *ctxt)
 {
 	uint32_t codec = get_codec_id (ctxt->fc);
@@ -342,6 +358,9 @@ main (int argc, char **argv)
 		goto bail;
 
 	if (!mfc_ctxt_setup_input_buffers (ctxt))
+		goto bail;
+
+	if (!mfc_ctxt_setup_output_buffers (ctxt))
 		goto bail;
 
 	if (v4l2_mfc_streamon (ctxt->handler) != 0) {
