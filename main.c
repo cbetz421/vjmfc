@@ -77,10 +77,6 @@
 #include "dev.h"
 #include "av.h"
 
-/* compressed frame size. 1080p mpeg4 10Mb/s can be >256k in size, so
- * this is to make sure frame fits into buffer */
-#define STREAM_BUFFER_SIZE 512000
-
 struct mfc_buffer {
 	void *paddr[2];
 	struct v4l2_plane planes[2];
