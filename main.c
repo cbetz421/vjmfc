@@ -119,12 +119,13 @@ mfc_ctxt_close (struct mfc_ctxt *ctxt)
 static void
 unmap_buffers (struct mfc_ctxt *ctxt)
 {
-	int i, j;
+	int i;
+	uint32_t j;
 
 	for (i = 0; i < ctxt->oc; i++) {
 		struct mfc_buffer *b = &ctxt->out[i];
 
-		for (j = 0; j < 2; j++) {
+		for (j = 0; j < b->buf.length; j++) {
 			if (b->paddr[j] && b->paddr[j] != MAP_FAILED)
 				munmap (b->paddr[j], b->planes[j].length);
 		}
@@ -142,10 +143,10 @@ mfc_ctxt_free (struct mfc_ctxt *ctxt)
 static bool
 map_planes (int fd, struct mfc_buffer *b)
 {
-	int i;
+	uint32_t i;
 	struct v4l2_buffer *buf = &b->buf;
 
-	for (i = 0; i < 2; i++) {  /* two planes */
+	for (i = 0; i < buf->length; i++) {
 		if (buf->m.planes[i].length == 0)
 			continue;
 
