@@ -81,13 +81,9 @@
 #define STREAM_BUFFER_SIZE 512000
 
 struct mfc_buffer {
-       int size[2];
-       int offset[2];
-       int bytesused[2];
-       void *plane[2];
-       int numplanes;
-       int index;
-       bool queue;
+	void *paddr[2];
+	struct v4l2_plane planes[2];
+	struct v4l2_buffer buf;
 };
 
 struct mfc_ctxt {
@@ -127,9 +123,9 @@ unmap_buffers (struct mfc_ctxt *ctxt)
 	for (i = 0; i < ctxt->oc; i++) {
 		struct mfc_buffer *b = &ctxt->out[i];
 
-		for (j = 0; j < b->numplanes; j++) {
-			if (b->plane[j] && b->plane[j] != MAP_FAILED)
-				munmap (b->plane[j], b->size[j]);
+		for (j = 0; j < 2; j++) {
+			if (b->paddr[j] && b->paddr[j] != MAP_FAILED)
+				munmap (b->paddr[j], b->planes[j].length);
 		}
 	}
 }
@@ -142,31 +138,28 @@ mfc_ctxt_free (struct mfc_ctxt *ctxt)
 	free (ctxt);
 }
 
-
 static bool
-map_buffer (int fd, struct v4l2_buffer *buf, struct mfc_buffer *out)
+map_planes (int fd, struct mfc_buffer *b)
 {
 	int i;
+	struct v4l2_buffer *buf = &b->buf;
 
-	for (i = 0; i < 2; i++) {
-		out->size[i] = buf->m.planes[i].length;
-		out->bytesused[i] = buf->m.planes[i].bytesused;
-
-		if (out->size[i] == 0)
+	for (i = 0; i < 2; i++) {  /* two planes */
+		memcpy(&b->planes[i], &buf->m.planes[i], sizeof (struct v4l2_plane));
+		if (buf->m.planes[i].length == 0)
 			continue;
 
-		out->plane[i] = mmap (NULL,
-				      buf->m.planes[i].length,
-				      PROT_READ | PROT_WRITE,
-				      MAP_SHARED,
-				      fd,
-				      buf->m.planes[i].m.mem_offset);
+		b->paddr[i] = mmap (NULL,
+				    buf->m.planes[i].length,
+				    PROT_READ | PROT_WRITE,
+				    MAP_SHARED,
+				    fd,
+				    buf->m.planes[i].m.mem_offset);
 
-		if (out->plane[i] == MAP_FAILED)
+		if (b->paddr[i] == MAP_FAILED)
 			return false;
 
-		memset (out->plane[i], 0, out->size[i]);
-		out->numplanes++;
+		memset (b->paddr[i], 0, buf->m.planes[i].length);
 	}
 
 	return true;
@@ -176,39 +169,33 @@ static bool
 queue_buffers (struct mfc_ctxt *ctxt)
 {
 	int i;
-	struct v4l2_plane planes[2];
-	struct v4l2_buffer buf;
 	struct mfc_buffer *b;
 
 	for (i = 0; i < ctxt->oc; i++) {
+		b = &ctxt->out[i];
+
 		if (v4l2_mfc_querybuf (ctxt->handler,
 				       i,
 				       V4L2_MEMORY_MMAP,
-				       planes,
-				       &buf) != 0) {
+				       b->planes,
+				       &b->buf) != 0) {
 			perror ("query output buffers failed: ");
 			return false;
 		}
 
-		b = &ctxt->out[i];
-		if (!map_buffer (ctxt->handler, &buf, b)) {
+		if (!map_planes (ctxt->handler, b)) {
 			perror ("mapping output buffers failed: ");
 			return false;
 		}
-		b->index = i;
 
-		for (i = 0; i < b->numplanes; i++) {
-			planes[i].m.userptr = (unsigned long) b->plane[i];
-			planes[i].length = b->size[i];
-			planes[i].bytesused = b->bytesused[i];
-		}
-
-		int frame_length = b->bytesused[0]; /* 0 */
+		int frame_length = b->planes[0].bytesused;
 		if (v4l2_mfc_qbuf (ctxt->handler,
-				   &buf,
+				   &b->buf,
 				   V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
 				   V4L2_MEMORY_MMAP,
-				   i, planes, frame_length) != 0) {
+				   i,
+				   b->planes,
+				   frame_length) != 0) {
 			perror ("queue input buffer");
 			return false;
 		}
