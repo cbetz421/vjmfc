@@ -13,11 +13,10 @@ int v4l2_mfc_reqbufs (int fd,
 		      int *buf_cnt);
 
 int v4l2_mfc_querybuf (int fd,
-		       struct v4l2_buffer *buf,
-		       enum v4l2_buf_type type,
-		       enum v4l2_memory memory,
 		       int index,
-		       struct v4l2_plane *planes);
+		       enum v4l2_memory memory,
+		       struct v4l2_plane *planes,
+		       struct v4l2_buffer *buf);
 
 int v4l2_mfc_streamon (int fd, enum v4l2_buf_type type);
 

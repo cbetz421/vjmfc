@@ -1,5 +1,6 @@
 #include "v4l2_mfc.h"
 
+#include <string.h>
 #include <stdio.h>
 #include <poll.h>
 
@@ -75,26 +76,26 @@ v4l2_mfc_reqbufs (int fd,
 
 int
 v4l2_mfc_querybuf (int fd,
-		   struct v4l2_buffer *buf,
-		   enum v4l2_buf_type type,
-		   enum v4l2_memory memory,
 		   int index,
-		   struct v4l2_plane *planes)
+		   enum v4l2_memory memory,
+		   struct v4l2_plane *planes,
+		   struct v4l2_buffer *buf)
 {
-	int length = -1, ret;
+	int ret;
 
-	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-		length = 1;
-	else if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-		length = 2;
+	struct v4l2_buffer b = {
+		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+		.memory = memory,
+		.index = index,
+		.m.planes = planes,
+		.length = 2,
+	};
 
-	buf->type = type;
-	buf->memory = memory;
-	buf->index = index;
-	buf->m.planes = planes;
-	buf->length = length;
+	ret = ioctl (fd, VIDIOC_QUERYBUF, &b);
 
-	ret = ioctl (fd, VIDIOC_QUERYBUF, buf);
+	if (buf)
+		memcpy(buf, &b, sizeof (struct v4l2_buffer));
+
 	return ret;
 }
 

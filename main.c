@@ -182,10 +182,10 @@ queue_buffers (struct mfc_ctxt *ctxt)
 
 	for (i = 0; i < ctxt->oc; i++) {
 		if (v4l2_mfc_querybuf (ctxt->handler,
-				       &buf,
-				       V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+				       i,
 				       V4L2_MEMORY_MMAP,
-				       i, planes) != 0) {
+				       planes,
+				       &buf) != 0) {
 			perror ("query output buffers failed: ");
 			return false;
 		}
