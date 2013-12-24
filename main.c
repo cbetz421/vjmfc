@@ -71,6 +71,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <assert.h>
 
 #include "v4l2_mfc.h"
 #include "dev.h"
@@ -181,6 +182,9 @@ queue_buffers (struct mfc_ctxt *ctxt)
 			perror ("query output buffers failed: ");
 			return false;
 		}
+
+		printf ("> buffer %d has %d planes\n", i, b->buf.length);
+		assert (b->buf.length < 2);
 
 		if (!map_planes (ctxt->handler, b)) {
 			perror ("mapping output buffers failed: ");
