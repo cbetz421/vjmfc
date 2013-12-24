@@ -215,7 +215,7 @@ queue_buffers (struct mfc_ctxt *ctxt, enum dir d)
 }
 
 static bool
-mfc_ctxt_init (struct mfc_ctxt *ctxt, uint32_t codec)
+mfc_ctxt_init (struct mfc_ctxt *ctxt)
 {
 	char *dev = v4l2_find_device("s5p-mfc-dec");
 	if (!dev)
@@ -228,6 +228,12 @@ mfc_ctxt_init (struct mfc_ctxt *ctxt, uint32_t codec)
 
 	if (v4l2_mfc_querycap (ctxt->handler) != 0) {
 		perror ("Couldn't query capabilities: ");
+		return false;
+	}
+
+	uint32_t codec = get_codec_id (ctxt->fc);
+	if (codec == 0) {
+		perror ("Couldn't recognize the codec: ");
 		return false;
 	}
 
@@ -285,11 +291,7 @@ main (int argc, char **argv)
 		goto bail;
 	}
 
-	uint32_t codec = get_codec_id (ctxt->fc);
-	if (codec == 0)
-		goto bail;
-
-	if (!mfc_ctxt_init (ctxt, codec))
+	if (!mfc_ctxt_init (ctxt))
 		goto bail;
 
 	if (!queue_buffers (ctxt, IN)) {
