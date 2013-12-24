@@ -87,7 +87,7 @@ struct mfc_ctxt {
 	int handler;
 	AVFormatContext *fc;
 	struct mfc_buffer *out;
-	int oc;
+	uint32_t oc;
 };
 
 static struct mfc_ctxt *
@@ -115,8 +115,7 @@ mfc_ctxt_close (struct mfc_ctxt *ctxt)
 static void
 unmap_buffers (struct mfc_ctxt *ctxt)
 {
-	int i;
-	uint32_t j;
+	uint32_t i, j;
 
 	for (i = 0; i < ctxt->oc; i++) {
 		struct mfc_buffer *b = &ctxt->out[i];
@@ -165,7 +164,7 @@ map_planes (int fd, struct mfc_buffer *b)
 static bool
 queue_buffers (struct mfc_ctxt *ctxt)
 {
-	int i;
+	uint32_t i;
 	struct mfc_buffer *b;
 
 	for (i = 0; i < ctxt->oc; i++) {
@@ -219,7 +218,7 @@ mfc_ctxt_init (struct mfc_ctxt *ctxt, uint32_t codec)
 		return false;
 	}
 
-	int count = 2; /* because I want */
+	uint32_t count = 2; /* because I want */
 	if (v4l2_mfc_reqbufs (ctxt->handler,
 			      V4L2_MEMORY_MMAP,
 			      &count) != 0) {

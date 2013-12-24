@@ -62,7 +62,7 @@ v4l2_mfc_s_fmt (int fd,
 int
 v4l2_mfc_reqbufs (int fd,
 		  enum v4l2_memory memory,
-		  int *buf_cnt)
+		  uint32_t *buf_cnt)
 {
 	int ret;
 	struct v4l2_requestbuffers reqbuf = {
