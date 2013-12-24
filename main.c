@@ -145,7 +145,6 @@ map_planes (int fd, struct mfc_buffer *b)
 	struct v4l2_buffer *buf = &b->buf;
 
 	for (i = 0; i < 2; i++) {  /* two planes */
-		memcpy(&b->planes[i], &buf->m.planes[i], sizeof (struct v4l2_plane));
 		if (buf->m.planes[i].length == 0)
 			continue;
 
