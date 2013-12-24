@@ -68,16 +68,11 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <string.h>
-#include <stdio.h>
-#include <dirent.h>
-#include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <sys/mman.h>
 
 #include "v4l2_mfc.h"
+#include "dev.h"
 #include "av.h"
 
 /* compressed frame size. 1080p mpeg4 10Mb/s can be >256k in size, so
@@ -146,107 +141,6 @@ mfc_ctxt_free (struct mfc_ctxt *ctxt)
 	free (ctxt);
 }
 
-static char *
-get_driver (char *fname)
-{
-	FILE *fp;
-	char path[BUFSIZ];
-	char *p, *driver = NULL;
-	int s;
-	size_t n = 0;
-
-	s = snprintf (path, BUFSIZ, "/sys/class/video4linux/%s/name", fname);
-	if (s >= BUFSIZ)
-		return NULL;
-
-	fp = fopen (path, "r");
-	if (!fp)
-		return NULL;
-
-	s = getline (&driver, &n, fp);
-	if (s < 0) {
-		free (driver);
-		return NULL;
-	}
-
-	p = strchr (driver, '\n');
-	if (p)
-		*p = '\0';
-
-	return driver;
-}
-
-static char *
-get_device (char *fname)
-{
-	char path[BUFSIZ], target[BUFSIZ];
-	int s, ret;
-	char *bname, *device;
-
-	errno = 0;
-	snprintf (path, BUFSIZ, "/sys/class/video4linux/%s", fname);
-	ret = readlink (path, target, BUFSIZ);
-	if (ret < 0 || ret == BUFSIZ || errno)
-		return NULL;
-	target[ret] = '\0'; /* why do we need this? */
-
-	bname = basename (target);
-	device = (char *) malloc (1024 * sizeof (char));
-	s = snprintf (device, 1024, "/dev/%s", bname);
-	if (s >= 1024)
-		return NULL;
-
-	return device;
-}
-
-static void
-open_and_query (char *device, int *handler)
-{
-	int fd;
-
-	fd = open (device, O_RDWR | O_NONBLOCK, 0);
-	if (fd < 0)
-		return;
-
-	if (v4l2_mfc_querycap (fd) == 0) {
-		*handler = fd;
-		return;
-	}
-
-	close (fd);
-}
-
-static bool
-open_device (struct mfc_ctxt *ctxt)
-{
-	DIR *dir;
-	struct dirent *ent;
-	char *driver, *device;
-
-	dir = opendir ("/sys/class/video4linux/");
-	if (!dir)
-		return false;
-
-	while ((ent = readdir (dir)) != NULL) {
-		if (strncmp (ent->d_name, "video", 5) != 0)
-			continue;
-
-		driver = get_driver (ent->d_name);
-		if (!driver)
-			continue;
-
-		device = get_device (ent->d_name);
-		if (device && ctxt->handler == -1 && strstr (driver, "s5p-mfc-dec")) {
-			open_and_query (device, &ctxt->handler);
-		}
-
-		free (driver);
-		free (device);
-	}
-
-	closedir (dir);
-	return ctxt->handler != -1;
-}
 
 static bool
 map_buffer (int fd, struct v4l2_buffer *buf, struct mfc_buffer *out)
@@ -325,7 +219,8 @@ queue_buffers (struct mfc_ctxt *ctxt)
 static bool
 mfc_ctxt_init (struct mfc_ctxt *ctxt, uint32_t codec)
 {
-	if (!open_device (ctxt))
+	ctxt->handler = v4l2_find_device("s5p-mfc-dec");
+	if (ctxt->handler == -1)
 		return false;
 
 	if (v4l2_mfc_s_fmt (ctxt->handler, codec, 1024 * 3072) != 0) {
