@@ -11,7 +11,6 @@ int v4l2_mfc_s_fmt (int fd,
 		    unsigned int size);
 
 int v4l2_mfc_reqbufs (int fd,
-		      enum v4l2_buf_type type,
 		      enum v4l2_memory memory,
 		      int *buf_cnt);
 

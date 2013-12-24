@@ -56,13 +56,12 @@ v4l2_mfc_s_fmt (int fd,
 
 int
 v4l2_mfc_reqbufs (int fd,
-		  enum v4l2_buf_type type,
 		  enum v4l2_memory memory,
 		  int *buf_cnt)
 {
 	int ret;
 	struct v4l2_requestbuffers reqbuf = {
-		.type = type,
+		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
 		.memory = memory,
 		.count = *buf_cnt,
 	};
