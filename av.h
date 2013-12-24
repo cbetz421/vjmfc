@@ -9,5 +9,6 @@ void av_context_free (AVFormatContext **fctxt);
 
 
 uint32_t get_codec_id (AVFormatContext *ic);
+uint8_t *get_codec_extradata (AVFormatContext *ic, int *size);
 
 #endif

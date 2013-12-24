@@ -70,3 +70,12 @@ get_codec_id (AVFormatContext *ic)
 
 	return 0;
 }
+
+uint8_t *
+get_codec_extradata (AVFormatContext *ic, int *size)
+{
+	AVCodecContext *cc = get_video_codec_ctxt(ic);
+	if (size)
+		*size = cc->extradata_size;
+	return cc->extradata;
+}

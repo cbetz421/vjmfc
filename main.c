@@ -234,6 +234,20 @@ queue_buffers (struct mfc_ctxt *ctxt, enum dir d)
 	return true;
 }
 
+static void
+fill_first_input_buffer (struct mfc_ctxt *ctxt)
+{
+	struct mfc_buffer *b;
+	uint8_t *data;
+	int size;
+
+	b = &ctxt->in[0];
+
+	data = get_codec_extradata (ctxt->fc, &size);
+	if (size > 0)
+		memcpy (b->paddr, data, size);
+}
+
 static bool
 mfc_ctxt_init (struct mfc_ctxt *ctxt)
 {
@@ -289,6 +303,8 @@ main (int argc, char **argv)
 
 	if (!mfc_ctxt_init (ctxt))
 		goto bail;
+
+	fill_first_input_buffer (ctxt);
 
 	if (!queue_buffers (ctxt, IN)) {
 		perror ("Couln't queue input buffers");
