@@ -290,8 +290,10 @@ main (int argc, char **argv)
 	}
 
 	struct mfc_ctxt *ctxt = mfc_ctxt_new ();
-	if (!mfc_ctxt_open (ctxt, argv[1]))
+	if (!mfc_ctxt_open (ctxt, argv[1])) {
+		perror ("Couldn't open input file: ");
 		goto bail;
+	}
 
 	uint32_t codec = get_codec_id (ctxt->fc);
 	if (codec == 0)
