@@ -249,6 +249,49 @@ fill_first_input_buffer (struct mfc_ctxt *ctxt)
 }
 
 static bool
+prepare_buffers (struct mfc_ctxt *ctxt, enum dir d)
+{
+	struct mfc_buffer *buf;
+	uint32_t count = (d == IN) ? 1 : 2;
+
+	if (v4l2_mfc_reqbufs (ctxt->handler,
+			      V4L2_MEMORY_MMAP,
+			      &count) != 0) {
+		perror ("Couldn't request buffers: ");
+		return false;
+	}
+
+	buf = (struct mfc_buffer *) calloc (count, sizeof (struct mfc_buffer));
+
+	if (d == IN) {
+		ctxt->ic = count;
+		ctxt->in = buf;
+	} else {
+		ctxt->oc = count;
+		ctxt->out = buf;
+	}
+
+	return true;
+}
+
+static bool
+mfc_ctxt_setup_input_buffers (struct mfc_ctxt *ctxt)
+{
+	if (!prepare_buffers (ctxt, IN))
+		return false;
+
+	if (!create_buffers (ctxt, IN))
+		return false;
+
+	fill_first_input_buffer (ctxt);
+
+	if (!queue_buffers (ctxt, IN))
+		return false;
+
+	return true;
+}
+
+static bool
 mfc_ctxt_init (struct mfc_ctxt *ctxt)
 {
 	uint32_t codec = get_codec_id (ctxt->fc);
@@ -261,20 +304,6 @@ mfc_ctxt_init (struct mfc_ctxt *ctxt)
 		perror ("Couldn't set format: ");
 		return false;
 	}
-
-	uint32_t count = 2; /* because I want */
-	if (v4l2_mfc_reqbufs (ctxt->handler,
-			      V4L2_MEMORY_MMAP,
-			      &count) != 0) {
-		perror ("Couldn't request buffers: ");
-		return false;
-	}
-
-	ctxt->ic = count; /* input buffers count */
-	ctxt->in = (struct mfc_buffer *) calloc (count, sizeof (struct mfc_buffer));
-
-	if (!create_buffers (ctxt, IN))
-		return false;
 
 	return true;
 }
@@ -304,11 +333,8 @@ main (int argc, char **argv)
 	if (!mfc_ctxt_init (ctxt))
 		goto bail;
 
-	fill_first_input_buffer (ctxt);
-
-	if (!queue_buffers (ctxt, IN)) {
+	if (!mfc_ctxt_setup_input_buffers (ctxt))
 		goto bail;
-	}
 
 	if (v4l2_mfc_streamon (ctxt->handler) != 0) {
 		perror ("Couldn't set stream on: ");
