@@ -249,14 +249,6 @@ mfc_ctxt_init (struct mfc_ctxt *ctxt, uint32_t codec)
 	if (!create_buffers (ctxt, IN))
 		return false;
 
-	if (!queue_buffers (ctxt, IN))
-		return false;
-
-	if (v4l2_mfc_streamon (ctxt->handler) != 0) {
-		perror ("Couldn't set stream on: ");
-		return false;
-	}
-
 	return true;
 }
 
@@ -298,6 +290,16 @@ main (int argc, char **argv)
 
 	if (!mfc_ctxt_init (ctxt, codec))
 		goto bail;
+
+	if (!queue_buffers (ctxt, IN)) {
+		perror ("Couln't queue input buffers");
+		goto bail;
+	}
+
+	if (v4l2_mfc_streamon (ctxt->handler) != 0) {
+		perror ("Couldn't set stream on: ");
+		goto bail;
+	}
 
 	ret = EXIT_SUCCESS;
 
