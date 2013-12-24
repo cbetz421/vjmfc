@@ -8,7 +8,7 @@ LIBS += $(shell pkg-config --libs libavformat libavcodec)
 
 all:
 
-vjmfc: main.o v4l2_mfc.o
+vjmfc: main.o v4l2_mfc.o av.o
 bins += vjmfc
 
 all: $(bins)
