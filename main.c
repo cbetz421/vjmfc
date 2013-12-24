@@ -96,6 +96,7 @@ struct mfc_buffer {
 
 struct mfc_ctxt {
 	int handler;
+	AVFormatContext *fc;
 	struct mfc_buffer *out;
 	int oc;
 };
@@ -104,10 +105,22 @@ static struct mfc_ctxt *
 mfc_ctxt_new ()
 {
 	struct mfc_ctxt *ctxt = calloc (1, sizeof (struct mfc_ctxt));
-
 	ctxt->handler = -1;
-
 	return ctxt;
+}
+
+static bool
+mfc_ctxt_open (struct mfc_ctxt *ctxt, const char *filename)
+{
+	ctxt->fc = av_context_new (filename);
+	return ctxt->fc != NULL;
+}
+
+static void
+mfc_ctxt_close (struct mfc_ctxt *ctxt)
+{
+	if (ctxt->fc)
+		av_context_free (&ctxt->fc);
 }
 
 static void
@@ -369,12 +382,10 @@ main (int argc, char **argv)
 	}
 
 	struct mfc_ctxt *ctxt = mfc_ctxt_new ();
+	if (!mfc_ctxt_open (ctxt, argv[1]))
+		goto bail;
 
-	AVFormatContext *avctxt = av_context_new (argv[1]);
-	if (!avctxt)
-		return ret;
-
-	uint32_t codec = get_codec_id (avctxt);
+	uint32_t codec = get_codec_id (ctxt->fc);
 	if (codec == 0)
 		goto bail;
 
@@ -384,8 +395,7 @@ main (int argc, char **argv)
 	ret = EXIT_SUCCESS;
 
 bail:
-	av_context_free (&avctxt);
-
+	mfc_ctxt_close (ctxt);
 	mfc_ctxt_deinit (ctxt);
 	mfc_ctxt_free (ctxt);
 	return ret;
