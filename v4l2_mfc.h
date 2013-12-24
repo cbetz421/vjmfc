@@ -41,8 +41,7 @@ int v4l2_mfc_dqbuf (int fd,
 		    enum v4l2_memory memory);
 
 int v4l2_mfc_g_fmt (int fd,
-		    struct v4l2_format *fmt,
-		    enum v4l2_buf_type type);
+		    struct v4l2_format *fmt);
 
 int v4l2_mfc_g_crop (int fd,
 		     struct v4l2_crop *crop,

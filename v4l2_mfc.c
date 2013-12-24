@@ -202,12 +202,11 @@ v4l2_mfc_dqbuf (int fd,
 
 int
 v4l2_mfc_g_fmt (int fd,
-		struct v4l2_format *fmt,
-		enum v4l2_buf_type type)
+		struct v4l2_format *fmt)
 {
     int ret;
 
-    fmt->type = type;
+    fmt->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
     ret = ioctl (fd, VIDIOC_G_FMT, fmt);
     return ret;
 }
