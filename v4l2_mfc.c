@@ -45,10 +45,15 @@ v4l2_mfc_s_fmt (int fd,
 	struct v4l2_format fmt = {
 		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
 		.fmt.pix_mp = {
+			.num_planes = 1,
 			.pixelformat = pfmt,
+			.plane_fmt = {
+				[0] = {
+					.sizeimage = size,
+				},
+			},
 		},
 	};
-	fmt.fmt.pix_mp.plane_fmt[0].sizeimage = size;
 
 	ret = ioctl (fd, VIDIOC_S_FMT, &fmt);
 	return ret;
