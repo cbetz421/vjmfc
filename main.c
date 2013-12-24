@@ -104,7 +104,22 @@ static bool
 mfc_ctxt_open (struct mfc_ctxt *ctxt, const char *filename)
 {
 	ctxt->fc = av_context_new (filename);
-	return ctxt->fc != NULL;
+	if (!ctxt->fc)
+		return false;
+
+	char *dev = v4l2_find_device("s5p-mfc-dec");
+	if (!dev)
+		return false;
+
+	ctxt->handler = open (dev, O_RDWR | O_NONBLOCK, 0);
+	free (dev);
+	if (ctxt->handler < 0)
+		return false;
+
+	if (v4l2_mfc_querycap (ctxt->handler) != 0)
+		return false;
+
+	return true;
 }
 
 static void
@@ -112,6 +127,11 @@ mfc_ctxt_close (struct mfc_ctxt *ctxt)
 {
 	if (ctxt->fc)
 		av_context_free (&ctxt->fc);
+
+	if (ctxt->handler != -1) {
+		close (ctxt->handler);
+		ctxt->handler = -1;
+	}
 }
 
 static void
@@ -217,20 +237,6 @@ queue_buffers (struct mfc_ctxt *ctxt, enum dir d)
 static bool
 mfc_ctxt_init (struct mfc_ctxt *ctxt)
 {
-	char *dev = v4l2_find_device("s5p-mfc-dec");
-	if (!dev)
-		return false;
-
-	ctxt->handler = open (dev, O_RDWR | O_NONBLOCK, 0);
-	free (dev);
-	if (ctxt->handler < 0)
-		return false;
-
-	if (v4l2_mfc_querycap (ctxt->handler) != 0) {
-		perror ("Couldn't query capabilities: ");
-		return false;
-	}
-
 	uint32_t codec = get_codec_id (ctxt->fc);
 	if (codec == 0) {
 		perror ("Couldn't recognize the codec: ");
@@ -259,19 +265,9 @@ mfc_ctxt_init (struct mfc_ctxt *ctxt)
 	return true;
 }
 
-static void
-close_device (struct mfc_ctxt *ctxt)
-{
-	if (ctxt->handler != -1) {
-		close (ctxt->handler);
-		ctxt->handler = -1;
-	}
-}
-
 static bool
 mfc_ctxt_deinit (struct mfc_ctxt *ctxt)
 {
-	close_device (ctxt);
 	return true;
 }
 

@@ -27,20 +27,31 @@ av_context_free (AVFormatContext **fctxt)
 	avformat_close_input (fctxt);
 }
 
-uint32_t
-get_codec_id (AVFormatContext *ic)
+static AVCodecContext *
+get_video_codec_ctxt (AVFormatContext *ic)
 {
 	unsigned int i;
 	AVCodecContext *cc;
-	enum AVCodecID codec = AV_CODEC_ID_NONE;
 
 	for (i = 0; i < ic->nb_streams; i++) {
 		cc = ic->streams[i]->codec;
-		if (cc->codec_type == AVMEDIA_TYPE_VIDEO) {
-			codec = cc->codec_id;
-			break;
-		}
+		if (cc->codec_type == AVMEDIA_TYPE_VIDEO)
+			return cc;
         }
+
+	return NULL;
+}
+
+uint32_t
+get_codec_id (AVFormatContext *ic)
+{
+	enum AVCodecID codec = AV_CODEC_ID_NONE;
+	AVCodecContext *cc = get_video_codec_ctxt(ic);
+
+	if (!cc)
+		return 0;
+
+	codec = cc->codec_id;
 
 	switch (codec) {
 	case AV_CODEC_ID_H264:
