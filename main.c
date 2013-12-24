@@ -293,6 +293,17 @@ prepare_buffers (struct mfc_ctxt *ctxt, enum dir d)
 static bool
 mfc_ctxt_setup_input_buffers (struct mfc_ctxt *ctxt)
 {
+	uint32_t codec = get_codec_id (ctxt->fc);
+	if (codec == 0) {
+		perror ("Couldn't recognize the codec: ");
+		return false;
+	}
+
+	if (v4l2_mfc_s_fmt (ctxt->handler, codec, 1024 * 3072) != 0) {
+		perror ("Couldn't set format: ");
+		return false;
+	}
+
 	if (!prepare_buffers (ctxt, IN))
 		return false;
 
@@ -338,16 +349,11 @@ mfc_ctxt_setup_output_buffers (struct mfc_ctxt *ctxt)
 static bool
 mfc_ctxt_init (struct mfc_ctxt *ctxt)
 {
-	uint32_t codec = get_codec_id (ctxt->fc);
-	if (codec == 0) {
-		perror ("Couldn't recognize the codec: ");
+	if (!mfc_ctxt_setup_input_buffers (ctxt))
 		return false;
-	}
 
-	if (v4l2_mfc_s_fmt (ctxt->handler, codec, 1024 * 3072) != 0) {
-		perror ("Couldn't set format: ");
+	if (!mfc_ctxt_setup_output_buffers (ctxt))
 		return false;
-	}
 
 	return true;
 }
@@ -375,12 +381,6 @@ main (int argc, char **argv)
 	}
 
 	if (!mfc_ctxt_init (ctxt))
-		goto bail;
-
-	if (!mfc_ctxt_setup_input_buffers (ctxt))
-		goto bail;
-
-	if (!mfc_ctxt_setup_output_buffers (ctxt))
 		goto bail;
 
 
