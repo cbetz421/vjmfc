@@ -152,29 +152,11 @@ v4l2_mfc_g_ctrl (int fd,
 
 int
 v4l2_mfc_qbuf (int fd,
-	       struct v4l2_buffer *qbuf,
-	       enum v4l2_buf_type type,
-	       enum v4l2_memory memory,
-	       int index,
-	       struct v4l2_plane *planes,
-	       int frame_length)
+	       struct v4l2_buffer *buf)
 {
-	int ret, length = 0;
+	int ret;
 
-	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		length = 1;
-	} else if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		length = 2;
-	}
-
-	qbuf->type = type;
-	qbuf->memory = memory;
-	qbuf->index = index;
-	qbuf->m.planes = planes;
-	qbuf->length = length;
-	qbuf->m.planes[0].bytesused = frame_length;
-
-	ret = ioctl (fd, VIDIOC_QBUF, qbuf);
+	ret = ioctl (fd, VIDIOC_QBUF, buf);
 	return ret;
 }
 

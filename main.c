@@ -188,14 +188,7 @@ queue_buffers (struct mfc_ctxt *ctxt)
 			return false;
 		}
 
-		int frame_length = b->planes[0].bytesused;
-		if (v4l2_mfc_qbuf (ctxt->handler,
-				   &b->buf,
-				   V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
-				   V4L2_MEMORY_MMAP,
-				   i,
-				   b->planes,
-				   frame_length) != 0) {
+		if (v4l2_mfc_qbuf (ctxt->handler, &b->buf) != 0) {
 			perror ("queue input buffer");
 			return false;
 		}

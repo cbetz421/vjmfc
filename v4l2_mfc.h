@@ -30,12 +30,7 @@ int v4l2_mfc_s_ctrl (int fd, int id, int value);
 int v4l2_mfc_g_ctrl (int fd, int id, int *value);
 
 int v4l2_mfc_qbuf (int fd,
-		   struct v4l2_buffer *qbuf,
-		   enum v4l2_buf_type type,
-		   enum v4l2_memory memory,
-		   int index,
-		   struct v4l2_plane *planes,
-		   int frame_length);
+		   struct v4l2_buffer *buf);
 
 int v4l2_mfc_dqbuf (int fd,
 		    struct v4l2_buffer *dqbuf,
