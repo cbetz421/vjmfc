@@ -189,7 +189,7 @@ create_buffers (struct mfc_ctxt *ctxt, enum dir d)
 	uint32_t i, c;
 	struct mfc_buffer *b;
 
-	c = (d == IN) ? ctxt->ic: ctxt->oc;
+	c = (d == IN) ? ctxt->ic : ctxt->oc;
 	b = (d == IN) ? ctxt->in : ctxt->out;
 
 	for (i = 0; i < c; i++) {
@@ -221,7 +221,7 @@ queue_buffers (struct mfc_ctxt *ctxt, enum dir d)
 	uint32_t i, c;
 	struct mfc_buffer *b;
 
-	c = (d == IN) ? ctxt->ic: ctxt->oc;
+	c = (d == IN) ? ctxt->ic : ctxt->oc;
 	b = (d == IN) ? ctxt->in : ctxt->out;
 
 	for (i = 0; i < c; i++) {
@@ -307,7 +307,7 @@ main (int argc, char **argv)
 	fill_first_input_buffer (ctxt);
 
 	if (!queue_buffers (ctxt, IN)) {
-		perror ("Couln't queue input buffers");
+		perror ("Couldn't queue input buffers");
 		goto bail;
 	}
 
