@@ -233,8 +233,7 @@ mfc_ctxt_init (struct mfc_ctxt *ctxt, uint32_t codec)
 	if (!queue_buffers (ctxt))
 		return false;
 
-	if (v4l2_mfc_streamon (ctxt->handler,
-			       V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) != 0) {
+	if (v4l2_mfc_streamon (ctxt->handler) != 0) {
 		perror ("Couldn't set stream on: ");
 		return false;
 	}

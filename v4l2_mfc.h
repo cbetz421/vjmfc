@@ -21,7 +21,7 @@ int v4l2_mfc_querybuf (int fd,
 		       struct v4l2_plane *planes,
 		       struct v4l2_buffer *buf);
 
-int v4l2_mfc_streamon (int fd, enum v4l2_buf_type type);
+int v4l2_mfc_streamon (int fd);
 
 int v4l2_mfc_streamoff (int fd, enum v4l2_buf_type type);
 

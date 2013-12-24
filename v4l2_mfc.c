@@ -99,10 +99,10 @@ v4l2_mfc_querybuf (int fd,
 }
 
 int
-v4l2_mfc_streamon (int fd,
-		   enum v4l2_buf_type type)
+v4l2_mfc_streamon (int fd)
 {
     int ret;
+    enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 
     ret = ioctl (fd, VIDIOC_STREAMON, &type);
     return ret;
