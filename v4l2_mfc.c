@@ -67,7 +67,6 @@ v4l2_mfc_reqbufs (int fd,
 		.count = *buf_cnt,
 	};
 
-
 	ret = ioctl (fd, VIDIOC_REQBUFS, &reqbuf);
 	*buf_cnt = reqbuf.count;
 

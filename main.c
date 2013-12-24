@@ -224,7 +224,7 @@ mfc_ctxt_init (struct mfc_ctxt *ctxt, uint32_t codec)
 		return false;
 	}
 
-	int count = 2;
+	int count = 2; /* because I want */
 	if (v4l2_mfc_reqbufs (ctxt->handler,
 			      V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
 			      V4L2_MEMORY_MMAP,
