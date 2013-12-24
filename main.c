@@ -408,8 +408,6 @@ get_av_context (const char *fname)
 		return NULL;
 	}
 
-	av_dump_format (ic, 0, fname, 0);
-
 	return ic;
 }
 
