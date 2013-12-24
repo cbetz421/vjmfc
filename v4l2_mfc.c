@@ -193,8 +193,15 @@ v4l2_mfc_g_fmt (int fd,
 {
     int ret;
 
-    fmt->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
-    ret = ioctl (fd, VIDIOC_G_FMT, fmt);
+    struct v4l2_format f = {
+	    .type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+    };
+
+    ret = ioctl (fd, VIDIOC_G_FMT, &f);
+
+    if (fmt)
+	    memcpy (fmt, &f, sizeof (struct v4l2_format));
+
     return ret;
 }
 

@@ -327,6 +327,12 @@ mfc_ctxt_setup_input_buffers (struct mfc_ctxt *ctxt)
 static bool
 mfc_ctxt_setup_output_buffers (struct mfc_ctxt *ctxt)
 {
+	struct v4l2_format fmt;
+	if (v4l2_mfc_g_fmt (ctxt->handler, &fmt) != 0) {
+		perror ("Couldn't set format: ");
+		return false;
+	}
+
 	if (!prepare_buffers (ctxt, OUT))
 		return false;
 
