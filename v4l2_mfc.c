@@ -61,12 +61,13 @@ v4l2_mfc_s_fmt (int fd,
 
 int
 v4l2_mfc_reqbufs (int fd,
+		  enum v4l2_buf_type type,
 		  enum v4l2_memory memory,
 		  uint32_t *buf_cnt)
 {
 	int ret;
 	struct v4l2_requestbuffers reqbuf = {
-		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+		.type = type,
 		.memory = memory,
 		.count = *buf_cnt,
 	};
@@ -80,6 +81,7 @@ v4l2_mfc_reqbufs (int fd,
 int
 v4l2_mfc_querybuf (int fd,
 		   int index,
+		   enum v4l2_buf_type type,
 		   enum v4l2_memory memory,
 		   struct v4l2_plane *planes,
 		   struct v4l2_buffer *buf)
@@ -87,11 +89,10 @@ v4l2_mfc_querybuf (int fd,
 	int ret;
 
 	struct v4l2_buffer b = {
-		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+		.type = type,
 		.memory = memory,
 		.index = index,
 		.m.planes = planes,
-		.length = 2,
 	};
 
 	ret = ioctl (fd, VIDIOC_QUERYBUF, &b);
@@ -103,10 +104,10 @@ v4l2_mfc_querybuf (int fd,
 }
 
 int
-v4l2_mfc_streamon (int fd)
+v4l2_mfc_streamon (int fd,
+		   enum v4l2_buf_type type)
 {
     int ret;
-    enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 
     ret = ioctl (fd, VIDIOC_STREAMON, &type);
     return ret;

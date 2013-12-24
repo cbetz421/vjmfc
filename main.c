@@ -199,10 +199,14 @@ create_buffers (struct mfc_ctxt *ctxt, enum dir d)
 
 	c = (d == IN) ? ctxt->ic : ctxt->oc;
 	b = (d == IN) ? ctxt->in : ctxt->out;
+	enum v4l2_buf_type type = (d == IN) ?
+		V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE :
+		V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 
 	for (i = 0; i < c; i++) {
 		if (v4l2_mfc_querybuf (ctxt->handler,
 				       i,
+				       type,
 				       V4L2_MEMORY_MMAP,
 				       b[i].planes,
 				       &b[i].buf) != 0) {
@@ -261,8 +265,12 @@ prepare_buffers (struct mfc_ctxt *ctxt, enum dir d)
 {
 	struct mfc_buffer *buf;
 	uint32_t count = (d == IN) ? 1 : 2;
+	enum v4l2_buf_type type = (d == IN) ?
+		V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE :
+		V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 
 	if (v4l2_mfc_reqbufs (ctxt->handler,
+			      type,
 			      V4L2_MEMORY_MMAP,
 			      &count) != 0) {
 		perror ("Couldn't request buffers: ");
@@ -296,6 +304,12 @@ mfc_ctxt_setup_input_buffers (struct mfc_ctxt *ctxt)
 	if (!queue_buffers (ctxt, IN))
 		return false;
 
+	enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	if (v4l2_mfc_streamon (ctxt->handler, type) != 0) {
+		perror ("Couldn't set stream on: ");
+		return false;;
+	}
+
 	return true;
 }
 
@@ -310,6 +324,12 @@ mfc_ctxt_setup_output_buffers (struct mfc_ctxt *ctxt)
 
 	if (!queue_buffers (ctxt, OUT))
 		return false;
+
+	enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+	if (v4l2_mfc_streamon (ctxt->handler, type) != 0) {
+		perror ("Couldn't set stream on: ");
+		return false;;
+	}
 
 	return true;
 }
@@ -363,10 +383,6 @@ main (int argc, char **argv)
 	if (!mfc_ctxt_setup_output_buffers (ctxt))
 		goto bail;
 
-	if (v4l2_mfc_streamon (ctxt->handler) != 0) {
-		perror ("Couldn't set stream on: ");
-		goto bail;
-	}
 
 	ret = EXIT_SUCCESS;
 
