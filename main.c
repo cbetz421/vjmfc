@@ -218,12 +218,6 @@ mfc_ctxt_init (struct mfc_ctxt *ctxt, uint32_t codec)
 		return false;
 	}
 
-	struct v4l2_format fmt = { 0, };
-	if (v4l2_mfc_g_fmt (ctxt->handler, &fmt) != 0) {
-		perror ("Couldn't get format: ");
-		return false;
-	}
-
 	int count = 2; /* because I want */
 	if (v4l2_mfc_reqbufs (ctxt->handler,
 			      V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
