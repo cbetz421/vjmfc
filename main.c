@@ -77,6 +77,8 @@
 #include "dev.h"
 #include "av.h"
 
+enum dir { IN, OUT };
+
 struct mfc_buffer {
 	void *paddr[2];
 	struct v4l2_plane planes[2];
@@ -86,8 +88,8 @@ struct mfc_buffer {
 struct mfc_ctxt {
 	int handler;
 	AVFormatContext *fc;
-	struct mfc_buffer *out;
-	uint32_t oc;
+	struct mfc_buffer *in, *out;
+	uint32_t ic, oc;
 };
 
 static struct mfc_ctxt *
@@ -135,7 +137,7 @@ mfc_ctxt_free (struct mfc_ctxt *ctxt)
 	free (ctxt);
 }
 
-static bool
+inline static bool
 map_planes (int fd, struct mfc_buffer *b)
 {
 	uint32_t i;
@@ -162,32 +164,47 @@ map_planes (int fd, struct mfc_buffer *b)
 }
 
 static bool
-queue_buffers (struct mfc_ctxt *ctxt)
+create_buffers (struct mfc_ctxt *ctxt, enum dir d)
 {
-	uint32_t i;
+	uint32_t i, c;
 	struct mfc_buffer *b;
 
-	for (i = 0; i < ctxt->oc; i++) {
-		b = &ctxt->out[i];
+	c = (d == IN) ? ctxt->ic: ctxt->oc;
+	b = (d == IN) ? ctxt->in : ctxt->out;
 
+	for (i = 0; i < c; i++) {
 		if (v4l2_mfc_querybuf (ctxt->handler,
 				       i,
 				       V4L2_MEMORY_MMAP,
-				       b->planes,
-				       &b->buf) != 0) {
-			perror ("query output buffers failed: ");
+				       b[i].planes,
+				       &b[i].buf) != 0) {
+			perror ("query buffers failed: ");
 			return false;
 		}
 
-		printf ("> buffer %d has %d planes\n", i, b->buf.length);
-		assert (b->buf.length < 2);
+		printf ("> buffer %d has %d planes\n", i, b[i].buf.length);
+		assert (b[i].buf.length < 2);
 
 		if (!map_planes (ctxt->handler, b)) {
-			perror ("mapping output buffers failed: ");
+			perror ("mapping buffers failed: ");
 			return false;
 		}
+	}
 
-		if (v4l2_mfc_qbuf (ctxt->handler, &b->buf) != 0) {
+	return true;
+}
+
+static bool
+queue_buffers (struct mfc_ctxt *ctxt, enum dir d)
+{
+	uint32_t i, c;
+	struct mfc_buffer *b;
+
+	c = (d == IN) ? ctxt->ic: ctxt->oc;
+	b = (d == IN) ? ctxt->in : ctxt->out;
+
+	for (i = 0; i < c; i++) {
+		if (v4l2_mfc_qbuf (ctxt->handler, &b[i].buf) != 0) {
 			perror ("queue input buffer");
 			return false;
 		}
@@ -226,10 +243,13 @@ mfc_ctxt_init (struct mfc_ctxt *ctxt, uint32_t codec)
 		return false;
 	}
 
-	ctxt->oc = count; /* output buffers count */
-	ctxt->out = (struct mfc_buffer *) calloc (count, sizeof (struct mfc_buffer));
+	ctxt->ic = count; /* input buffers count */
+	ctxt->in = (struct mfc_buffer *) calloc (count, sizeof (struct mfc_buffer));
 
-	if (!queue_buffers (ctxt))
+	if (!create_buffers (ctxt, IN))
+		return false;
+
+	if (!queue_buffers (ctxt, IN))
 		return false;
 
 	if (v4l2_mfc_streamon (ctxt->handler) != 0) {
