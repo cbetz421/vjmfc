@@ -226,7 +226,7 @@ queue_buffers (struct mfc_ctxt *ctxt, enum dir d)
 
 	for (i = 0; i < c; i++) {
 		if (v4l2_mfc_qbuf (ctxt->handler, &b[i].buf) != 0) {
-			perror ("queue input buffer");
+			perror ("Couldn't queue buffers: ");
 			return false;
 		}
 	}
@@ -307,7 +307,6 @@ main (int argc, char **argv)
 	fill_first_input_buffer (ctxt);
 
 	if (!queue_buffers (ctxt, IN)) {
-		perror ("Couldn't queue input buffers");
 		goto bail;
 	}
 
